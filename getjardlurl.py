@@ -21,14 +21,6 @@ async def get_jardlurl(fileurl, filename=None):
         if not filem:
             return None
         fileid = filem.group(1)
-        if filename and filename.lower().endswith(".jar"):
-            try:
-                part1 = fileid[:4]
-                part2 = fileid[4:]
-                encodedname = quote(filename)
-                return f"https://mediafilez.forgecdn.net/files/{part1}/{part2}/{encodedname}"
-            except Exception:
-                pass
         resp = await session.get(fileurl, headers=headers)
         data = await resp.text()
         projidm = re.search(r'\\?"id\\?":(\d+),\\?"gameId\\?":\d+', data)

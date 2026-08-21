@@ -14,38 +14,44 @@ headers = {
     "Sec-Fetch-User": "?1",
     "Priority": "u=0, i",
 }
-async def parser(data):
+async def parser(data, base_url):
     files = []
-    for row in re.findall(r'<a class="file-row-details"(.*?)</a>', data, re.DOTALL):
-        fpath = m.group(1) if (m := re.search(r'href="([^"]+)"', row)) else ""
-        filename = m.group(1) if (m := re.search(r'class="name"[^>]*title="([^"]+)"', row)) else ""
-        uploaded = m.group(1) if (m := re.search(r'<span><span>(.*?)</span></span>', row)) else ""
-        size = m.group(1) if (m := re.search(r'<span>(\d+\.?\d*\s*(?:KB|MB|GB))</span>', row)) else ""
-        downloads = m.group(1) if (m := re.search(r'class="ellipsis">(.*?)</span>', row)) else ""
-        versions = re.findall(r'<li>([\d.]+)</li>', row)
-        loaders = re.findall(r'<li>(Forge|Fabric|NeoForge|Quilt)</li>', row)
-        if not loaders:
-            span = re.search(r'class="detail-other detail-flavor"[^>]*>(.*?)</div>', row, re.DOTALL)
-            if span:
-                loaders = re.findall(r'(Forge|Fabric|NeoForge|Quilt)', span.group(1))
-        if not filename:
-            continue
-        files.append({
-            "filename":  filename.strip(),
-            "versions":  versions,
-            "loaders":   loaders,
-            "uploaded":  uploaded.strip(),
-            "size":      size.strip(),
-            "downloads": downloads.strip(),
-            "fileurl":   f"https://www.curseforge.com{fpath}",
-            "jardlurl":  "",
-        })
-    return files
+    match = list(re.finditer(r'<div class=" file-row">(.*?)(?=<div class=" file-row">|</div><div class="files-results-bar files-results-bar--bottom")', data, re.DOTALL))
+    if match:
+        for match in match:
+            row = match.group(1)
+            fid = re.search(r'file-details-(\d+)', row)
+            name = re.search(r'class="name" title="([^"]+)"', row)
+            download = re.search(r'/download/(\d+)', row)
+            version_matches = re.findall(r'class="file-row-chip(?: file-row-chip-more)?" title="([^"]+)"', row)
+            loader = re.search(r'class="ellipsis">(Forge|Fabric|NeoForge|Quilt)</span>', row)
+            size = re.search(r'<div class="row-detail"><div class=" tooltip-wrapper"><span>([^<]+(?:KB|MB|GB))</span>', row)
+            downloads = re.search(r'class="row-detail downloads".*?<span class="ellipsis">([^<]+)</span>', row, re.DOTALL)
+            uploaded = re.search(r'class="row-detail".*?<span>([A-Z][a-z]{2} \d{1,2}, \d{4})</span>', row, re.DOTALL)
+            fid = (fid or download)
+            if not fid or not name:
+                continue
+            files.append({
+                "filename": "",
+                "versions": version_matches,
+                "loaders": [loader.group(1)] if loader else [],
+                "uploaded": uploaded.group(1) if uploaded else "",
+                "size": size.group(1) if size else "",
+                "downloads": downloads.group(1) if downloads else "",
+                "fileurl": f"https://www.curseforge.com{base_url[len('https://www.curseforge.com'):].rstrip('/')}/files/{fid.group(1)}",
+                "displayname": name.group(1),
+            })
+        return files
+
 async def get_ldrfiles(session, base_url, page, page_size, headers):
     url = f"{base_url}/files/all?page={page}&pageSize={page_size}&showAlphaFiles=hide"
     resp = await session.get(url, headers=headers)
     data = await resp.text()
-    nums = re.findall(r'<li class=" "><button>(\d+)</button></li>', data)
+    nums = re.findall(r'<li[^>]*>\s*<button>(\d+)</button>\s*</li>', data)
+    if not nums:
+        nums = re.findall(r'<ul class="page-numbers">(.*?)</ul>', data, re.DOTALL)
+        if nums:
+            nums = re.findall(r'<button>(\d+)</button>', nums[0])
     pages = max((int(n) for n in nums), default=page)
     fmap: dict[str, str] = {}
     for m in re.finditer(r'\\"id\\":(\d+),\\"fileName\\":\\"([^\\"]+)\\"', data):
@@ -57,11 +63,14 @@ async def get_ldrfiles(session, base_url, page, page_size, headers):
             name = m.group(2)
             if name.lower().endswith(".jar"):
                 fmap[m.group(1)] = name
-    files = await parser(data)
+    files = await parser(data, base_url)
     for f in files:
         if idmatch := re.search(r'/files/(\d+)$', f["fileurl"]):
             fid = idmatch.group(1)
             if fnamer := fmap.get(fid):
                 f["filename"] = fnamer
-                f["jardlurl"] = f"https://mediafilez.forgecdn.net/files/{fid[:4]}/{fid[4:]}/{quote(fnamer)}"
+        if not f["filename"]:
+            f["filename"] = f.pop("displayname", "")
+        else:
+            f.pop("displayname", None)
     return files, pages

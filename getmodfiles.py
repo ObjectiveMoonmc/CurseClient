@@ -38,12 +38,4 @@ async def get_mod_files(dllink):
             if f["fileurl"] not in seen:
                 seen.add(f["fileurl"])
                 uniquefiles.append(f)
-        needsres = [f for f in uniquefiles if not f["jardlurl"]]
-        if needsres:
-            dluri = await asyncio.gather(*[
-                get_jardlurl(f["fileurl"], f["filename"])
-                for f in needsres
-            ])
-            for f, url in zip(needsres, dluri):
-                f["jardlurl"] = url or ""
         return uniquefiles
