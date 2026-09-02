@@ -3,7 +3,7 @@
 import aiohttp
 import re
 headers = {
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:148.0) Gecko/20100101 Firefox/148.0",
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:155.0) Gecko/20100101 Firefox/155.0",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
     "Sec-GPC": "1",
@@ -19,13 +19,18 @@ async def get_deps_mod(modpath):
         resp = await session.get(f"https://www.curseforge.com{modpath}/relations/dependencies", headers=headers)
         data = await resp.text()
         deps = []
-        for a in re.findall(r'<a class="related-project-card"(.*?)</a>', data, re.DOTALL):
-            path = m.group(1) if (m := re.search(r'href="([^"]+)"', a)) else ""
-            name = m.group(1) if (m := re.search(r'<h5[^>]*>(.*?)</h5>', a)) else ""
-            author = m.group(1) if (m := re.search(r'class="author-name"[^>]*><span[^>]*>(.*?)</span>', a)) else ""
+        relations = m.group(1) if (m := re.search(r'relations\\":\[(.*?)\],\\"pagination', data, re.DOTALL)) else ""
+        for relation in re.finditer(
+            r'\{\\"id\\":\d+,\\"name\\":\\"([^\"]*)\\",\\"slug\\":\\"([^\"]*)\\",'
+            r'\\"type\\":\\"[^\"]+\\".*?'
+            r'\\"authorName\\":\\"([^\"]*)\\"',
+            relations,
+            re.DOTALL,
+        ):
+            name, thing, author = relation.groups()
             deps.append({
-                "name": name.strip(),
-                "author": author.strip(),
-                "dllink": f"https://www.curseforge.com{path}"
+                "name": name,
+                "author": author,
+                "dllink": f"https://www.curseforge.com/minecraft/mc-mods/{thing}",
             })
         return deps

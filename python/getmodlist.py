@@ -6,7 +6,7 @@ from getdeps import get_deps_mod
 import json
 import asyncio
 headers = {
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:148.0) Gecko/20100101 Firefox/148.0",
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:155.0) Gecko/20100101 Firefox/155.0",
     "Accept-Language": "en-US,en;q=0.9",
     "Sec-GPC": "1",
     "Upgrade-Insecure-Requests": "1",
@@ -25,7 +25,7 @@ async def get_mods_list(query):
         pcards = []
         for card in cards:
             name = m.group(1) if (m := re.search(r'class="name"[^>]*><span[^>]*>(.*?)</span>', card)) else ""
-            author = m.group(1) if (m := re.search(r'class="author-name"[^>]*><span[^>]*>(.*?)</span>', card)) else ""
+            author = m.group(1) if (m := re.search(r'class="author-name"[^>]*>.*?<span[^>]*>(.*?)</span>', card, re.DOTALL)) else ""
             description = m.group(1) if (m := re.search(r'class="description">(.*?)</p>', card)) else ""
             downloads = m.group(1) if (m := re.search(r'class="detail-downloads">(.*?)</li>', card)) else ""
             updated = m.group(1) if (m := re.search(r'class="detail-updated"><span[^>]*>(.*?)</span>', card)) else ""
