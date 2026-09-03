@@ -1,4 +1,5 @@
 # CurseClient
 Open-source keyless API client for CurseForge
 
-This readme ain't too yappy, but there is a rust port from a friend at https://github.com/rooootdev/CurseClient-Rust
+There is an available **Rust** and available **python** lib for you to use
+simply refer to the examples
